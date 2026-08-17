@@ -52,12 +52,12 @@ needed for hybrid search already in place.
   (idempotent — safe to re-run, upserts by a stable external ID).
 
 **Done when:**
-- [ ] `docker compose up db` gives a Postgres instance with `pgvector` enabled.
-- [ ] `python manage.py migrate` creates the `Product` table with embedding +
+- [x] `docker compose up db` gives a Postgres instance with `pgvector` enabled.
+- [x] `python manage.py migrate` creates the `Product` table with embedding +
       tsvector columns and indexes.
-- [ ] `python manage.py seed_catalog` loads ~500 products, re-running it does
+- [x] `python manage.py seed_catalog` loads ~500 products, re-running it does
       not duplicate rows.
-- [ ] `python manage.py test catalog` passes (model-level tests: fields,
+- [x] `python manage.py test catalog` passes (model-level tests: fields,
       constraints, seed idempotency).
 
 ## Phase 2 — Ingestion Pipeline
