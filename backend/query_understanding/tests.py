@@ -86,6 +86,16 @@ class GetLLMProviderTests(TestCase):
             provider = get_llm_provider()
         self.assertIsInstance(provider, OllamaProvider)
 
+    @override_settings(LLM_PROVIDER="lmstudio")
+    def test_selects_lmstudio_provider(self):
+        from .providers import get_llm_provider
+        from .providers.lmstudio_provider import LMStudioProvider
+
+        with patch("query_understanding.providers.lmstudio_provider.ChatOpenAI") as MockChat:
+            MockChat.return_value.with_structured_output.return_value = object()
+            provider = get_llm_provider()
+        self.assertIsInstance(provider, LMStudioProvider)
+
     @override_settings(LLM_PROVIDER="not-a-real-provider")
     def test_unknown_provider_raises(self):
         from .providers import get_llm_provider
@@ -102,7 +112,7 @@ class FakeChatModel:
         self.structured_prompt = None
         self.text_prompt = None
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, **kwargs):
         return _FakeStructuredModel(self)
 
     def invoke(self, prompt):
@@ -143,6 +153,18 @@ class OllamaProviderTests(TestCase):
         expected = ParsedQuery(semantic_query="boots")
         fake_chat_model = FakeChatModel(structured_result=expected, text_result="Great boots for rain.")
         provider = OllamaProvider(chat_model=fake_chat_model)
+
+        self.assertIs(provider.parse_query("some prompt"), expected)
+        self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")
+
+
+class LMStudioProviderTests(TestCase):
+    def test_parse_query_and_synthesize_answer_use_injected_chat_model(self):
+        from .providers.lmstudio_provider import LMStudioProvider
+
+        expected = ParsedQuery(semantic_query="boots")
+        fake_chat_model = FakeChatModel(structured_result=expected, text_result="Great boots for rain.")
+        provider = LMStudioProvider(chat_model=fake_chat_model)
 
         self.assertIs(provider.parse_query("some prompt"), expected)
         self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")

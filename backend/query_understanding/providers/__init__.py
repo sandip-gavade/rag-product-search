@@ -15,4 +15,8 @@ def get_llm_provider():
         from .ollama_provider import OllamaProvider
         return OllamaProvider()
 
+    if provider_name == "lmstudio":
+        from .lmstudio_provider import LMStudioProvider
+        return LMStudioProvider()
+
     raise ValueError(f"Unknown LLM_PROVIDER: {provider_name!r}")

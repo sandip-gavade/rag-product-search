@@ -12,7 +12,7 @@ Retrieval-Augmented Generation (RAG) with hybrid (vector + keyword) search.
 | Async/ingestion | Celery + Redis |
 | Embeddings | OpenAI `text-embedding-3-small`, behind a swappable provider interface (future: local `sentence-transformers`) |
 | Orchestration | LangChain (query understanding + RAG chain) |
-| LLM | Anthropic Claude API (default) — structured query parsing + answer synthesis, behind a swappable `LLMProvider` interface with an Ollama/LM Studio (Qwen3) implementation for local dev, switchable via `LLM_PROVIDER` env var |
+| LLM | Anthropic Claude API (default) — structured query parsing + answer synthesis, behind a swappable `LLMProvider` interface with Ollama and LM Studio (Qwen) implementations for local dev, switchable via `LLM_PROVIDER` env var |
 | Frontend | React (Vite), plain fetch/axios, no UI framework |
 | Containerization | Docker Compose (postgres+pgvector, redis, django, react) |
 | Deploy target | Render or Railway (free tier) |
@@ -128,11 +128,18 @@ semantic query before hitting Phase 3's retrieval.
 
 - `LLMProvider` interface (mirrors the embeddings provider pattern from
   Phase 2) with `parse_query()` and `synthesize_answer()` methods.
-  `AnthropicProvider` (Claude, default) and `OllamaProvider` (local Qwen3 via
-  Ollama/LM Studio, `langchain-ollama`'s `ChatOllama`) implementations,
-  selected via `LLM_PROVIDER` env var. Comment on why local models need
-  stricter output validation/retry (Qwen3 tool-calling is decent but more
-  prone to malformed JSON than Claude on edge cases).
+  `AnthropicProvider` (Claude, default), `OllamaProvider` (local Qwen3 via
+  Ollama's native API, `langchain-ollama`'s `ChatOllama`), and
+  `LMStudioProvider` (local Qwen via LM Studio's OpenAI-compatible local
+  server, `langchain-openai`'s `ChatOpenAI` with a custom `base_url` — added
+  after finding Ollama and LM Studio speak different wire APIs despite both
+  serving Qwen, so one `langchain_ollama` implementation can't cover both)
+  implementations, selected via `LLM_PROVIDER` env var. Comment on why local
+  models need stricter output validation/retry (small local models are
+  decent at tool-calling but more prone to malformed JSON than Claude on
+  edge cases) and on `LMStudioProvider`'s `method="json_schema"` requirement
+  (LM Studio's server rejects LangChain's default forced-tool-by-name
+  `tool_choice`, discovered via live testing).
 - LangChain chain using the active `LLMProvider` with structured/tool-call
   output to extract:
   - `price_min`, `price_max`, `category`, `attributes` (e.g. color, brand),
@@ -157,15 +164,31 @@ semantic query before hitting Phase 3's retrieval.
       a real request to the running dev server degraded to plain semantic
       search with no crash, then hit Phase 3's existing 502 path at the
       embedding step, as expected — no `OPENAI_API_KEY` either.)*
-- [ ] Chain works with `LLM_PROVIDER=anthropic` and `LLM_PROVIDER=ollama`
-      (local Qwen3 pulled and running) — same test suite passes against both,
-      or Ollama-specific flakiness is documented if structured output proves
-      unreliable at the model size available locally. *(Pending: no
-      `ANTHROPIC_API_KEY` and no local Ollama instance available in this
-      environment — same gap as Phase 2/3's embedding provider. Code path
-      for both providers is implemented and unit-tested with mocked chat
-      models; add a key or run `ollama serve` + `ollama pull qwen3` to
-      verify live — no code changes needed either way.)*
+- [x] Chain works with `LLM_PROVIDER=anthropic` and a local-model provider
+      (local Qwen3/Qwen2.5 pulled and running) — same test suite passes
+      against both, or local-model-specific flakiness is documented if
+      structured output proves unreliable at the model size available
+      locally.
+      *(Local runtime — live-verified end-to-end, real network calls, no
+      mocking: added a third provider, `LMStudioProvider`
+      (`langchain_openai.ChatOpenAI` pointed at LM Studio's OpenAI-compatible
+      local server), after discovering a live LM Studio instance running on
+      this machine with `qwen2.5-coder-7b-instruct` loaded. First live
+      attempt with `with_structured_output()`'s default method 400'd — LM
+      Studio's server only accepts string `tool_choice` values
+      (`none`/`auto`/`required`), not LangChain's default forced-tool-by-name
+      object. Fixed by passing `method="json_schema"`; re-ran live and got
+      the exact target extraction: `price_max=3000.0`, `category="Footwear"`,
+      `semantic_query="waterproof hiking boots"` for
+      `"waterproof hiking boots under 3000 rupees"`. Also live-verified
+      through the full `/api/search/` endpoint (embedding step then 502'd
+      as expected — no `OPENAI_API_KEY` — with no error from the LLM call
+      itself, confirming it succeeded silently rather than falling back).
+      Anthropic — no code-path difference, but still pending a real
+      `ANTHROPIC_API_KEY` in this environment to live-verify the same way.
+      Ollama specifically (as opposed to LM Studio) remains untested live —
+      no local Ollama instance available here; `OllamaProvider`'s code path
+      is implemented and unit-tested with a mocked chat model only.)*
 
 ## Phase 5 — RAG Answer Synthesis
 
