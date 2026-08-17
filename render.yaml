@@ -1,0 +1,143 @@
+# Render Blueprint (Infrastructure as Code) — https://render.com/docs/blueprint-spec
+#
+# Why Render over Railway: Render's managed Postgres documents pgvector as
+# a supported extension out of the box, and its free tier covers exactly
+# the shape this project needs in one declarative file — a web service, a
+# background worker, managed Postgres, and managed Redis (Key Value) — via
+# `render.yaml`. Railway moved off a traditional free tier to a
+# trial-credit model, which doesn't fit an always-available portfolio demo
+# as cleanly.
+#
+# This file is a starting point, not a verified-live deployment — it
+# hasn't been applied against a real Render account in this environment.
+# Render's blueprint schema (especially the Key Value/Redis resource type)
+# has changed over time; cross-check against Render's current docs before
+# applying, and expect to adjust field names if they've moved on.
+#
+# One-time manual step after the first deploy (not expressible as a build/
+# start command): seed_catalog runs automatically on every deploy (see
+# backend's startCommand), but embedding the catalog needs a real
+# OPENAI_API_KEY set as an env var first, then a one-off job —
+#   render run --service rag-backend -- python manage.py ingest_catalog
+# (or trigger the Celery worker's embed_all_products task instead, once
+# OPENAI_API_KEY and ANTHROPIC_API_KEY are set on both services below).
+
+services:
+  - type: web
+    name: rag-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Migrate then seed on every deploy — idempotent either way (see
+    # catalog/management/commands/seed_catalog.py and Phase 1's plan
+    # notes), so safe to run unconditionally on each release.
+    startCommand: >
+      sh -c "python manage.py migrate &&
+             python manage.py seed_catalog &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    healthCheckPath: /api/search/?q=test
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      - key: DB_NAME
+        fromDatabase:
+          name: rag-catalog-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: rag-catalog-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: rag-catalog-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: rag-catalog-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: rag-catalog-db
+          property: port
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: rag-redis
+          property: connectionString
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false # set manually in the Render dashboard — never commit real keys
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://rag-frontend.onrender.com
+
+  - type: worker
+    name: rag-celery-worker
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config worker --loglevel=info
+    envVars:
+      - key: DB_NAME
+        fromDatabase:
+          name: rag-catalog-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: rag-catalog-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: rag-catalog-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: rag-catalog-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: rag-catalog-db
+          property: port
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: rag-redis
+          property: connectionString
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - type: web
+    name: rag-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://rag-backend.onrender.com
+
+  - type: redis
+    name: rag-redis
+    plan: free
+    ipAllowList: [] # private network only — no public access needed
+
+databases:
+  - name: rag-catalog-db
+    plan: free
+    postgresMajorVersion: "16"

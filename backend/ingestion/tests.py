@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.postgres.search import SearchQuery
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from catalog.models import Product
@@ -189,3 +190,28 @@ class OpenAIEmbeddingProviderTests(TestCase):
 
         self.assertEqual(result, [[0.1, 0.2], [0.3, 0.4]])
         self.assertEqual(fake_client.embeddings.called_with, (provider.model, ["a", "b"]))
+
+
+class IngestCatalogCommandTests(TestCase):
+    def setUp(self):
+        for i in range(3):
+            Product.objects.create(
+                external_id=f"ingest-{i:04d}", title=f"Product {i}", description="D",
+                category="Footwear", price=Decimal("100.00"),
+            )
+
+    def test_embeds_all_products_inline_by_default(self):
+        fake_provider = FakeEmbeddingProvider()
+        with patch("ingestion.tasks.get_embedding_provider", return_value=fake_provider):
+            call_command("ingest_catalog")
+
+        self.assertEqual(fake_provider.call_count, 3)
+        self.assertEqual(Product.objects.exclude(embedding=None).count(), 3)
+
+    def test_async_flag_enqueues_via_celery_instead_of_running_inline(self):
+        with patch("ingestion.tasks.embed_product.delay") as mock_delay:
+            call_command("ingest_catalog", "--async")
+
+        self.assertEqual(mock_delay.call_count, 3)
+        # Nothing actually ran inline — delay() just enqueues.
+        self.assertEqual(Product.objects.exclude(embedding=None).count(), 0)

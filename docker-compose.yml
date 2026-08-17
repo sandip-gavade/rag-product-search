@@ -29,6 +29,70 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+    # Migrate, seed, then serve — a clean `docker-compose up` ends with a
+    # populated (though unembedded — see README) catalog and a working API,
+    # no manual setup step required.
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py seed_catalog &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Container-to-container hostnames, overriding .env's host-oriented
+      # defaults (localhost / the remapped host ports) — this is the one
+      # place those differ between "run manage.py on the host" (this
+      # project's dev workflow so far) and "run inside docker-compose".
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery:
+    build:
+      context: ./backend
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      # The browser (not the frontend container) makes this request, so it
+      # must be the host-published backend port, not the in-network
+      # "backend" hostname the other services use.
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
   redisdata:

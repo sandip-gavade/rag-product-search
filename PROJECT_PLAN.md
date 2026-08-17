@@ -282,9 +282,25 @@ actual retrieved products.
   aggregate averages — formatted to paste directly into the README.
 
 **Done when:**
-- [ ] `python eval/run_eval.py` runs all queries and prints/saves the
-      markdown table.
-- [ ] Aggregate precision@k and average latency are reported.
+- [x] `python eval/run_eval.py` runs all queries and prints/saves the
+      markdown table. *(33 queries — `eval/generate_queries.py` derives
+      ground truth by filtering the actual seeded catalog on
+      title/category/price, not hand-typed IDs, so it stays correct and
+      regenerable as long as the deterministic catalog generator is
+      unchanged. `run_eval.py` handles per-query request failures
+      gracefully — live-verified against the running server returning a
+      clean 502 per row rather than crashing the whole run, same
+      no-`OPENAI_API_KEY` situation as every backend phase.)*
+- [x] Aggregate precision@k and average latency are reported. *(Live run:
+      33/33 queries, 0.86 / 0.87 average precision@5/@10, 16ms average
+      latency — see `eval/results.md`. Numbers reflect a keyword-only
+      baseline: query embeddings were stubbed out just for this run
+      (no network call, reverted immediately after — see the Phase 9
+      README for why and how) since no product has a real embedding in
+      this environment either; every query needing semantic matching or
+      price-phrase stripping (both jobs the missing live LLM/embeddings
+      would normally do) scores near zero, which is the expected,
+      informative failure mode, not a retrieval bug.)*
 
 ## Phase 8 — Docker & Deploy Prep
 
@@ -301,10 +317,29 @@ deploy.
   env var list, migration step on release.
 
 **Done when:**
-- [ ] `docker-compose up` from a clean clone (with `.env` filled in) gives a
+- [x] `docker-compose up` from a clean clone (with `.env` filled in) gives a
       fully working app — seed data, ingestion, search, frontend.
-- [ ] Deploy config is present and documented, even if not actually deployed
-      live (deploying is optional/user's call).
+      *(Live-verified: `docker compose up -d --build` built all 5 services
+      (db, redis, backend, celery, frontend) and brought them up healthy;
+      backend correctly ran `migrate` + `seed_catalog` (500 products) on
+      boot; `/api/search/` reachable on the host at :8000, frontend on
+      :5173 (HTTP 200); celery worker connected and correctly processed —
+      draining a genuine backlog of ~500 embedding tasks left over from
+      Phase 2's testing, all correctly 401'ing with no data corruption
+      (0 products left with a stray partial embedding). Ingestion itself
+      needs a real `OPENAI_API_KEY`, which this environment doesn't have —
+      same gap as every phase — so `docker-compose up` gets you a fully
+      running, wired app; actually populating embeddings is one added
+      command (`ingest_catalog`, new this phase) once a key is set.)*
+- [x] Deploy config is present and documented, even if not actually deployed
+      live (deploying is optional/user's call). *(`render.yaml` — chosen
+      over Railway because Render's managed Postgres documents pgvector
+      support and its free tier covers a web service + background worker +
+      managed Postgres + managed Redis in one declarative blueprint; Railway
+      moved off a traditional free tier to a trial-credit model. Not applied
+      against a real Render account — the file is a documented starting
+      point, flagged as such in its own header comment, not a verified-live
+      deployment.)*
 
 ## Phase 9 — README
 
