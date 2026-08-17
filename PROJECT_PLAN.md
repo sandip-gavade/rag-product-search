@@ -352,9 +352,13 @@ deploy.
 - Screenshots/GIF of the UI if easy to capture.
 
 **Done when:**
-- [ ] README covers architecture, setup, design rationale, and eval results.
-- [ ] A stranger could clone the repo and get it running from the README
-      alone.
+- [x] README covers architecture, setup, design rationale, and eval results.
+      *(Mermaid diagram rendered locally via `@mermaid-js/mermaid-cli` to
+      confirm valid syntax before committing, not just eyeballed.)*
+- [x] A stranger could clone the repo and get it running from the README
+      alone. *(Both the Docker Compose path and the manual path are
+      literally what was live-verified in Phase 8/throughout — not new
+      unverified instructions.)*
 
 ---
 
