@@ -1,0 +1,427 @@
+{
+  "queries": [
+    {
+      "query": "waterproof hiking boots",
+      "relevant_external_ids": [
+        "footwear-0004",
+        "footwear-0012",
+        "footwear-0013",
+        "footwear-0021",
+        "footwear-0039",
+        "footwear-0040",
+        "footwear-0046",
+        "footwear-0063"
+      ]
+    },
+    {
+      "query": "waterproof hiking boots under 3000",
+      "relevant_external_ids": [
+        "footwear-0004",
+        "footwear-0013",
+        "footwear-0040",
+        "footwear-0046"
+      ]
+    },
+    {
+      "query": "running shoes",
+      "relevant_external_ids": [
+        "footwear-0008",
+        "footwear-0015",
+        "footwear-0027",
+        "footwear-0032",
+        "footwear-0034"
+      ]
+    },
+    {
+      "query": "formal shoes",
+      "relevant_external_ids": [
+        "footwear-0003",
+        "footwear-0007",
+        "footwear-0014",
+        "footwear-0017",
+        "footwear-0018",
+        "footwear-0020",
+        "footwear-0024",
+        "footwear-0028",
+        "footwear-0033",
+        "footwear-0036",
+        "footwear-0037",
+        "footwear-0051",
+        "footwear-0053",
+        "footwear-0060"
+      ]
+    },
+    {
+      "query": "waterproof sandals under 2000",
+      "relevant_external_ids": [
+        "footwear-0001"
+      ]
+    },
+    {
+      "query": "rain boots",
+      "relevant_external_ids": [
+        "footwear-0002",
+        "footwear-0010",
+        "footwear-0011",
+        "footwear-0030",
+        "footwear-0035",
+        "footwear-0045",
+        "footwear-0052",
+        "footwear-0055"
+      ]
+    },
+    {
+      "query": "wireless earbuds",
+      "relevant_external_ids": [
+        "electronics-0006",
+        "electronics-0007",
+        "electronics-0031",
+        "electronics-0035",
+        "electronics-0036",
+        "electronics-0042",
+        "electronics-0059",
+        "electronics-0063"
+      ]
+    },
+    {
+      "query": "bluetooth speaker",
+      "relevant_external_ids": [
+        "electronics-0004",
+        "electronics-0019",
+        "electronics-0026",
+        "electronics-0033",
+        "electronics-0052",
+        "electronics-0053"
+      ]
+    },
+    {
+      "query": "mechanical keyboard",
+      "relevant_external_ids": [
+        "electronics-0008",
+        "electronics-0013",
+        "electronics-0020",
+        "electronics-0021",
+        "electronics-0023",
+        "electronics-0050"
+      ]
+    },
+    {
+      "query": "power bank",
+      "relevant_external_ids": [
+        "electronics-0002",
+        "electronics-0009",
+        "electronics-0016",
+        "electronics-0017",
+        "electronics-0018",
+        "electronics-0027",
+        "electronics-0043",
+        "electronics-0044",
+        "electronics-0046",
+        "electronics-0054"
+      ]
+    },
+    {
+      "query": "laptop stand under 7000",
+      "relevant_external_ids": [
+        "electronics-0001",
+        "electronics-0015",
+        "electronics-0025",
+        "electronics-0028",
+        "electronics-0037",
+        "electronics-0057"
+      ]
+    },
+    {
+      "query": "webcam",
+      "relevant_external_ids": [
+        "electronics-0003",
+        "electronics-0014",
+        "electronics-0030",
+        "electronics-0047",
+        "electronics-0048",
+        "electronics-0049",
+        "electronics-0055",
+        "electronics-0060",
+        "electronics-0061",
+        "electronics-0062"
+      ]
+    },
+    {
+      "query": "denim jacket",
+      "relevant_external_ids": [
+        "apparel-0001",
+        "apparel-0019",
+        "apparel-0022",
+        "apparel-0035",
+        "apparel-0038",
+        "apparel-0051",
+        "apparel-0056"
+      ]
+    },
+    {
+      "query": "cotton t-shirt",
+      "relevant_external_ids": [
+        "apparel-0002",
+        "apparel-0005",
+        "apparel-0006",
+        "apparel-0007",
+        "apparel-0024",
+        "apparel-0028",
+        "apparel-0040",
+        "apparel-0043",
+        "apparel-0052"
+      ]
+    },
+    {
+      "query": "wool sweater",
+      "relevant_external_ids": [
+        "apparel-0008",
+        "apparel-0012",
+        "apparel-0026",
+        "apparel-0048",
+        "apparel-0062"
+      ]
+    },
+    {
+      "query": "puffer jacket",
+      "relevant_external_ids": [
+        "apparel-0011",
+        "apparel-0015",
+        "apparel-0020",
+        "apparel-0023",
+        "apparel-0027",
+        "apparel-0031",
+        "apparel-0032",
+        "apparel-0044",
+        "apparel-0053",
+        "apparel-0054",
+        "apparel-0057",
+        "apparel-0059",
+        "apparel-0061"
+      ]
+    },
+    {
+      "query": "chino trousers",
+      "relevant_external_ids": [
+        "apparel-0009",
+        "apparel-0021",
+        "apparel-0047"
+      ]
+    },
+    {
+      "query": "non-stick frying pan",
+      "relevant_external_ids": [
+        "home-kitchen-0002",
+        "home-kitchen-0026",
+        "home-kitchen-0029",
+        "home-kitchen-0030",
+        "home-kitchen-0036",
+        "home-kitchen-0039",
+        "home-kitchen-0042",
+        "home-kitchen-0060"
+      ]
+    },
+    {
+      "query": "electric kettle",
+      "relevant_external_ids": [
+        "home-kitchen-0006",
+        "home-kitchen-0011",
+        "home-kitchen-0020",
+        "home-kitchen-0022",
+        "home-kitchen-0024",
+        "home-kitchen-0034",
+        "home-kitchen-0053",
+        "home-kitchen-0055",
+        "home-kitchen-0062"
+      ]
+    },
+    {
+      "query": "knife set",
+      "relevant_external_ids": [
+        "home-kitchen-0005",
+        "home-kitchen-0015",
+        "home-kitchen-0025",
+        "home-kitchen-0027",
+        "home-kitchen-0040",
+        "home-kitchen-0044",
+        "home-kitchen-0047",
+        "home-kitchen-0063"
+      ]
+    },
+    {
+      "query": "air fryer",
+      "relevant_external_ids": [
+        "home-kitchen-0012",
+        "home-kitchen-0013",
+        "home-kitchen-0041",
+        "home-kitchen-0050",
+        "home-kitchen-0054",
+        "home-kitchen-0061"
+      ]
+    },
+    {
+      "query": "camping tent",
+      "relevant_external_ids": [
+        "sports-outdoors-0001",
+        "sports-outdoors-0012",
+        "sports-outdoors-0013",
+        "sports-outdoors-0014",
+        "sports-outdoors-0023",
+        "sports-outdoors-0040",
+        "sports-outdoors-0049",
+        "sports-outdoors-0051",
+        "sports-outdoors-0054"
+      ]
+    },
+    {
+      "query": "yoga mat",
+      "relevant_external_ids": [
+        "sports-outdoors-0015",
+        "sports-outdoors-0024",
+        "sports-outdoors-0028",
+        "sports-outdoors-0034",
+        "sports-outdoors-0045",
+        "sports-outdoors-0056"
+      ]
+    },
+    {
+      "query": "trekking backpack",
+      "relevant_external_ids": [
+        "sports-outdoors-0005",
+        "sports-outdoors-0006",
+        "sports-outdoors-0009",
+        "sports-outdoors-0021",
+        "sports-outdoors-0025",
+        "sports-outdoors-0031",
+        "sports-outdoors-0041",
+        "sports-outdoors-0047",
+        "sports-outdoors-0048",
+        "sports-outdoors-0052"
+      ]
+    },
+    {
+      "query": "cycling helmet",
+      "relevant_external_ids": [
+        "sports-outdoors-0002",
+        "sports-outdoors-0019",
+        "sports-outdoors-0035",
+        "sports-outdoors-0046",
+        "sports-outdoors-0050",
+        "sports-outdoors-0057",
+        "sports-outdoors-0060",
+        "sports-outdoors-0062"
+      ]
+    },
+    {
+      "query": "facial cleanser",
+      "relevant_external_ids": [
+        "beauty-personal-care-0002",
+        "beauty-personal-care-0004",
+        "beauty-personal-care-0012",
+        "beauty-personal-care-0037",
+        "beauty-personal-care-0052",
+        "beauty-personal-care-0054",
+        "beauty-personal-care-0055",
+        "beauty-personal-care-0059",
+        "beauty-personal-care-0061"
+      ]
+    },
+    {
+      "query": "sunscreen lotion",
+      "relevant_external_ids": [
+        "beauty-personal-care-0005",
+        "beauty-personal-care-0007",
+        "beauty-personal-care-0009",
+        "beauty-personal-care-0015",
+        "beauty-personal-care-0017",
+        "beauty-personal-care-0021",
+        "beauty-personal-care-0029",
+        "beauty-personal-care-0033",
+        "beauty-personal-care-0035",
+        "beauty-personal-care-0040",
+        "beauty-personal-care-0043",
+        "beauty-personal-care-0045",
+        "beauty-personal-care-0058"
+      ]
+    },
+    {
+      "query": "electric toothbrush",
+      "relevant_external_ids": [
+        "beauty-personal-care-0003",
+        "beauty-personal-care-0014",
+        "beauty-personal-care-0016",
+        "beauty-personal-care-0018",
+        "beauty-personal-care-0023",
+        "beauty-personal-care-0024",
+        "beauty-personal-care-0025",
+        "beauty-personal-care-0041"
+      ]
+    },
+    {
+      "query": "mystery novel",
+      "relevant_external_ids": [
+        "books-0002",
+        "books-0006",
+        "books-0014",
+        "books-0016",
+        "books-0017",
+        "books-0035",
+        "books-0038",
+        "books-0053"
+      ]
+    },
+    {
+      "query": "science fiction novel",
+      "relevant_external_ids": [
+        "books-0004",
+        "books-0009",
+        "books-0021",
+        "books-0023",
+        "books-0024",
+        "books-0029",
+        "books-0030",
+        "books-0031",
+        "books-0037",
+        "books-0044",
+        "books-0047"
+      ]
+    },
+    {
+      "query": "board game",
+      "relevant_external_ids": [
+        "toys-games-0002",
+        "toys-games-0011",
+        "toys-games-0030",
+        "toys-games-0039",
+        "toys-games-0049",
+        "toys-games-0052"
+      ]
+    },
+    {
+      "query": "building block set",
+      "relevant_external_ids": [
+        "toys-games-0005",
+        "toys-games-0022",
+        "toys-games-0026",
+        "toys-games-0031",
+        "toys-games-0032",
+        "toys-games-0038",
+        "toys-games-0044"
+      ]
+    },
+    {
+      "query": "remote control car",
+      "relevant_external_ids": [
+        "toys-games-0001",
+        "toys-games-0006",
+        "toys-games-0018",
+        "toys-games-0019",
+        "toys-games-0035",
+        "toys-games-0045",
+        "toys-games-0051",
+        "toys-games-0056",
+        "toys-games-0057"
+      ]
+    }
+  ]
+}
