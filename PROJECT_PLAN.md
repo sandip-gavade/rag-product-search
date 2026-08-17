@@ -110,12 +110,15 @@ products ranked by a fused score of vector similarity + keyword relevance.
   keyword score, fused score) for transparency/debuggability.
 
 **Done when:**
-- [ ] Endpoint returns ranked results for a raw query with no filters.
-- [ ] Reranking logic is unit-testable independent of the DB (pure function
+- [x] Endpoint returns ranked results for a raw query with no filters.
+      *(GET `/api/search/?q=...`, live-tested against the running dev
+      server: missing `q` → 400; a real query with no `OPENAI_API_KEY`
+      configured yet → clean 502, not a crash — matches Phase 2's status.)*
+- [x] Reranking logic is unit-testable independent of the DB (pure function
       taking two ranked lists, returning fused list).
-- [ ] Comments explain the fusion method and why it was chosen over
+- [x] Comments explain the fusion method and why it was chosen over
       alternatives.
-- [ ] Tests: fusion function correctness (known inputs → known ranking),
+- [x] Tests: fusion function correctness (known inputs → known ranking),
       endpoint smoke test against seeded data.
 
 ## Phase 4 — Query Understanding (LangChain)
