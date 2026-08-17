@@ -1,8 +1,7 @@
 import json
 
-from django.http import StreamingHttpResponse
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.http import JsonResponse, StreamingHttpResponse
+from django.views import View
 
 from catalog.models import Product
 from query_understanding.chain import understand_query
@@ -26,7 +25,7 @@ def _serialize_product(product: Product) -> dict:
     }
 
 
-class RAGAnswerView(APIView):
+class RAGAnswerView(View):
     """GET /api/rag/answer/?q=<query>&top_k=<int>
 
     The full pipeline in one call: Phase 4 query understanding → Phase 3
@@ -36,37 +35,75 @@ class RAGAnswerView(APIView):
     .stream()) and meaningfully improves perceived latency over waiting
     for the full paragraph.
 
-    Event sequence: "products" (the retrieved set, once) → "token"
-    (repeated, one per streamed chunk) → "done" (final hallucination-guard
-    result) — or "error" in place of the token stream if synthesis fails.
+    A plain Django View, not DRF's APIView: DRF performs content
+    negotiation against the request's Accept header before the view runs,
+    and the browser's EventSource sends `Accept: text/event-stream` —
+    which no DRF renderer matches, so APIView 406s before this code would
+    even execute. Nothing here needs DRF's serialization anyway (SSE
+    frames are hand-built, error responses are plain JSON), so a plain
+    View sidesteps the mismatch entirely instead of fighting it.
+
+    Event sequence: "filters" (the active filters, once) → "products" (the
+    retrieved set, once) → "token" (repeated, one per streamed chunk) →
+    "answer_complete" (final hallucination-guard result) — or
+    "synthesis_error" in place of the token stream if synthesis fails.
+    (Named "synthesis_error", not "error" — "error" is a reserved event
+    type on the browser's EventSource; a server-sent `event: error` is
+    indistinguishable from a genuine connection failure there, so a
+    distinct name is required for the frontend to tell them apart.)
+
+    Filter-chip refinement: pass `refine=true` with `category`/`price_min`/
+    `price_max` (any can be blank to mean "no filter") to re-run retrieval
+    against the *same* semantic query with explicit filters, skipping
+    another LLM call entirely — this is what the frontend does when a user
+    removes a filter chip, so removing a chip is instant and free rather
+    than round-tripping through query understanding again.
     """
 
     def get(self, request):
-        query = request.query_params.get("q", "").strip()
+        query = request.GET.get("q", "").strip()
         if not query:
-            return Response({"detail": "Query parameter 'q' is required."}, status=400)
+            return JsonResponse({"detail": "Query parameter 'q' is required."}, status=400)
 
         try:
-            top_k = int(request.query_params.get("top_k", 5))
+            top_k = int(request.GET.get("top_k", 5))
         except ValueError:
-            return Response({"detail": "'top_k' must be an integer."}, status=400)
+            return JsonResponse({"detail": "'top_k' must be an integer."}, status=400)
 
-        parsed = understand_query(query)
+        if request.GET.get("refine") == "true":
+            semantic_query = query
+            category = request.GET.get("category") or None
+            price_min = self._parse_optional_float(request.GET.get("price_min"))
+            price_max = self._parse_optional_float(request.GET.get("price_max"))
+        else:
+            parsed = understand_query(query)
+            semantic_query = parsed.semantic_query
+            category = parsed.category
+            price_min = parsed.price_min
+            price_max = parsed.price_max
 
         try:
             results = hybrid_search(
-                parsed.semantic_query, top_k=top_k,
-                category=parsed.category, price_min=parsed.price_min, price_max=parsed.price_max,
+                semantic_query, top_k=top_k,
+                category=category, price_min=price_min, price_max=price_max,
             )
         except Exception:
-            return Response(
+            return JsonResponse(
                 {"detail": "Search is temporarily unavailable (embedding provider error)."},
                 status=502,
             )
 
         products = [r["product"] for r in results]
+        active_filters = {
+            "category": category, "price_min": price_min, "price_max": price_max,
+            # The cleaned semantic query, not the raw NL query — refine
+            # requests (filter-chip removal) resend this as `q` verbatim,
+            # so price/category phrases already stripped out by query
+            # understanding don't leak back into the semantic search text.
+            "semantic_query": semantic_query,
+        }
         response = StreamingHttpResponse(
-            self._event_stream(query, products), content_type="text/event-stream",
+            self._event_stream(semantic_query, products, active_filters), content_type="text/event-stream",
         )
         # Disable buffering (nginx/proxy default) so tokens actually arrive
         # incrementally instead of all at once when the stream closes.
@@ -74,7 +111,12 @@ class RAGAnswerView(APIView):
         response["X-Accel-Buffering"] = "no"
         return response
 
-    def _event_stream(self, query: str, products: list[Product]):
+    @staticmethod
+    def _parse_optional_float(value):
+        return float(value) if value else None
+
+    def _event_stream(self, query: str, products: list[Product], active_filters: dict):
+        yield _sse("filters", active_filters)
         yield _sse("products", {"products": [_serialize_product(p) for p in products]})
 
         if not products:
@@ -93,7 +135,7 @@ class RAGAnswerView(APIView):
                 full_answer += chunk
                 yield _sse("token", {"text": chunk})
         except Exception:
-            yield _sse("error", {"detail": "Answer synthesis is temporarily unavailable."})
+            yield _sse("synthesis_error", {"detail": "Answer synthesis is temporarily unavailable."})
             return
 
         ungrounded = find_ungrounded_citations(full_answer, products)

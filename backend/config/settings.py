@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     # Needed for SearchVectorField / SearchVector / SearchQuery (Phase 2-3
     # keyword-search half of hybrid retrieval).
     'django.contrib.postgres',
+    'corsheaders',
     'rest_framework',
     'catalog',
     'ingestion',
@@ -54,6 +55,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Must sit ahead of CommonMiddleware per django-cors-headers' own docs.
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -162,3 +165,11 @@ OLLAMA_BASE_URL = env('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = env('OLLAMA_MODEL', default='qwen3')
 LMSTUDIO_BASE_URL = env('LMSTUDIO_BASE_URL', default='http://localhost:1234/v1')
 LMSTUDIO_MODEL = env('LMSTUDIO_MODEL', default='qwen3-8b')
+
+
+# CORS — the React dev server (Phase 6) runs on a different origin than
+# Django, and the SSE endpoint is fetched cross-origin via EventSource.
+
+CORS_ALLOWED_ORIGINS = env.list(
+    'CORS_ALLOWED_ORIGINS', default=['http://localhost:5173', 'http://127.0.0.1:5173'],
+)

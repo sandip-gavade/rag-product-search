@@ -157,11 +157,12 @@ class RAGAnswerEndpointTests(TestCase):
             events = self._collect_sse(response)
 
         event_types = [e[0] for e in events]
-        self.assertEqual(event_types[0], "products")
+        self.assertEqual(event_types[0], "filters")
+        self.assertEqual(event_types[1], "products")
         self.assertEqual(event_types[-1], "answer_complete")
         self.assertIn("token", event_types)
 
-        products_event = events[0][1]
+        products_event = events[1][1]
         self.assertEqual(products_event["products"][0]["external_id"], "p-boots")
 
         final_event = events[-1][1]
@@ -203,8 +204,31 @@ class RAGAnswerEndpointTests(TestCase):
             events = self._collect_sse(response)
             mock_rag_provider.assert_not_called()
 
-        self.assertEqual(events[0][1]["products"], [])
+        self.assertEqual(events[1][1]["products"], [])
         self.assertIn("No matching products", events[-1][1]["answer"])
+
+    def test_refine_skips_query_understanding_and_applies_filters_explicitly(self):
+        # Filter-chip removal: the frontend sends refine=true with the
+        # remaining filters explicit, and the raw q is used verbatim as
+        # the semantic query — no LLM round-trip for understanding.
+        embedding_provider = FakeQueryEmbeddingProvider(_hot_vector(0))
+        llm_provider = FakeStreamingProvider("The [p-boots] look great.")
+
+        with patch("search.retrieval.get_embedding_provider", return_value=embedding_provider), \
+             patch("query_understanding.chain.get_llm_provider") as mock_understand_provider, \
+             patch("rag.views.get_llm_provider", return_value=llm_provider):
+            response = self.client.get(reverse("rag-answer"), {
+                "q": "waterproof hiking boots", "refine": "true",
+                "category": "", "price_min": "", "price_max": "5000",
+            })
+            events = self._collect_sse(response)
+            mock_understand_provider.assert_not_called()
+
+        filters_event = events[0][1]
+        self.assertIsNone(filters_event["category"])
+        self.assertIsNone(filters_event["price_min"])
+        self.assertEqual(filters_event["price_max"], 5000.0)
+        self.assertEqual(filters_event["semantic_query"], "waterproof hiking boots")
 
     def test_embedding_failure_returns_502(self):
         with patch("search.retrieval.get_embedding_provider", side_effect=RuntimeError("no key")):

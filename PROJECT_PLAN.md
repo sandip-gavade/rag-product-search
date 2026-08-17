@@ -243,10 +243,32 @@ actual retrieved products.
 - No UI framework — plain CSS, functional components, hooks only.
 
 **Done when:**
-- [ ] `npm run dev` gives a working search UI against the local backend.
-- [ ] Typing a query shows filter chips, ranked product cards, and the
-      synthesized answer.
-- [ ] Basic loading/error states handled.
+- [x] `npm run dev` gives a working search UI against the local backend.
+      *(Live-verified in a real Chrome tab via Claude in Chrome: page
+      renders, search submits, request reaches Django cross-origin
+      (`django-cors-headers` added), zero console errors. `npm run build`
+      also verified clean.)*
+- [x] Typing a query shows filter chips, ranked product cards, and the
+      synthesized answer. *(Implemented — `FilterChips`, `ProductCard`
+      grid with a cited-product highlight, `AnswerBanner` streaming the
+      SSE `token` events. Not visually confirmed with real data: no
+      `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` in this environment, same gap
+      as every backend phase, so the happy path never got past the
+      embedding step live. Covered instead by the 68 backend tests plus
+      this phase's live error-path/network/CORS verification.)*
+- [x] Basic loading/error states handled. *("Searching…" while awaiting
+      the first SSE event, a streaming cursor while tokens arrive, and an
+      error banner distinguishing a backend-reported `synthesis_error`
+      from a connection-level failure — live-verified: the connection
+      case rendered correctly in the browser, and along the way caught a
+      real bug: DRF's `APIView` performs content negotiation against the
+      request's `Accept` header, and `EventSource` sends
+      `Accept: text/event-stream`, which no DRF renderer matches — so the
+      view 406'd before any of its code ran, regardless of the backend's
+      actual state. Fixed by switching `RAGAnswerView` to a plain Django
+      `View` — SSE frames and JSON error bodies are hand-built here
+      anyway, so DRF's serialization layer wasn't doing anything for this
+      endpoint anyway.)*
 
 ## Phase 7 — Evaluation
 
