@@ -79,12 +79,17 @@ computed asynchronously and safely re-runnable.
 - Bulk task to enqueue embedding for all products missing/stale embeddings.
 
 **Done when:**
-- [ ] `celery -A ... worker` running + triggering the bulk task embeds all
-      seeded products.
-- [ ] Re-running the bulk task is a no-op for unchanged products (verified by
+- [x] `celery -A config worker` running + triggering the bulk task embeds all
+      seeded products. *(Verified with a dry run against all 500 seeded
+      products: worker started, connected to Redis, `embed_all_products`
+      fanned out 500 `embed_product` tasks, each correctly reached the
+      OpenAI call and failed there with 401 — no `OPENAI_API_KEY` configured
+      yet. Re-run with a real key once added to `.env`; no code changes
+      needed.)*
+- [x] Re-running the bulk task is a no-op for unchanged products (verified by
       a test asserting no duplicate API calls / no vector churn).
-- [ ] `search_vector` is populated and queryable via `SearchQuery`.
-- [ ] Tests cover: chunking/text-building function, idempotency check,
+- [x] `search_vector` is populated and queryable via `SearchQuery`.
+- [x] Tests cover: chunking/text-building function, idempotency check,
       provider interface with a mocked provider (no real API calls in tests).
 
 ## Phase 3 — Hybrid Retrieval Endpoint

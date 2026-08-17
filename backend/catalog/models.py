@@ -38,6 +38,11 @@ class Product(models.Model):
     # the Phase 2 ingestion task (kept in sync with title/description).
     search_vector = SearchVectorField(null=True, blank=True)
 
+    # SHA-256 of the text last embedded (see ingestion.text.build_embedding_text).
+    # Lets the ingestion task detect "nothing changed" and skip re-embedding
+    # on re-runs without diffing every field individually.
+    content_hash = models.CharField(max_length=64, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

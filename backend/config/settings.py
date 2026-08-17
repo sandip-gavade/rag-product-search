@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.postgres',
     'rest_framework',
     'catalog',
+    'ingestion',
 ]
 
 MIDDLEWARE = [
@@ -133,3 +134,18 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Celery — Redis as both broker and result backend (see docker-compose.yml).
+
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = TIME_ZONE
+
+
+# Embeddings provider (see ingestion/providers/) — swappable via env var,
+# defaults to OpenAI per the project's tech-stack decision.
+
+EMBEDDING_PROVIDER = env('EMBEDDING_PROVIDER', default='openai')
