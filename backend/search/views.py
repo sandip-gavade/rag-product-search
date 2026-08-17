@@ -2,6 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from query_understanding.chain import understand_query
+
 from .retrieval import hybrid_search
 from .serializers import SearchResultSerializer
 
@@ -9,11 +11,12 @@ from .serializers import SearchResultSerializer
 class SearchView(APIView):
     """GET /api/search/?q=<query>&top_k=<int>
 
-    Hybrid (vector + keyword) retrieval over the catalog, fused with RRF.
-    See fusion.py for why RRF was chosen over a raw weighted-score merge.
-    Query-understanding (structured filters, LLM-cleaned semantic query)
-    is layered in front of this in Phase 4 — this endpoint takes the raw
-    query text as-is.
+    Query understanding (LangChain + Claude/Ollama) parses the raw query
+    into structured filters and a cleaned semantic query, then hybrid
+    (vector + keyword) retrieval runs the semantic query within those
+    filters, fused with RRF. See query_understanding/chain.py for the
+    parse step and its fallback, and fusion.py for why RRF was chosen
+    over a raw weighted-score merge.
     """
 
     def get(self, request):
@@ -32,17 +35,37 @@ class SearchView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # understand_query never raises — an LLM failure degrades to plain
+        # semantic search (see chain.py) rather than blocking the request.
+        parsed = understand_query(query)
+
         try:
-            results = hybrid_search(query, top_k=top_k)
+            results = hybrid_search(
+                parsed.semantic_query,
+                top_k=top_k,
+                category=parsed.category,
+                price_min=parsed.price_min,
+                price_max=parsed.price_max,
+            )
         except Exception:
-            # The one external network call in this request (the query
-            # embedding) can fail for reasons outside our control — no API
-            # key configured, rate limit, network blip. Surface that as a
-            # clean 502 instead of a raw 500/stack trace.
+            # The one external call that *can't* degrade gracefully — the
+            # query embedding is required for vector search. No API key
+            # configured, rate limit, network blip: surface a clean 502
+            # instead of a raw 500/stack trace.
             return Response(
                 {"detail": "Search is temporarily unavailable (embedding provider error)."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
         serializer = SearchResultSerializer(results, many=True)
-        return Response({"query": query, "results": serializer.data})
+        return Response({
+            "query": query,
+            "parsed": {
+                "semantic_query": parsed.semantic_query,
+                "category": parsed.category,
+                "price_min": parsed.price_min,
+                "price_max": parsed.price_max,
+                "attributes": parsed.attributes,
+            },
+            "results": serializer.data,
+        })

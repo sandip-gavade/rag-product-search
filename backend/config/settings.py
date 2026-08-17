@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'catalog',
     'ingestion',
     'search',
+    'query_understanding',
 ]
 
 MIDDLEWARE = [
@@ -150,3 +151,11 @@ CELERY_TIMEZONE = TIME_ZONE
 # defaults to OpenAI per the project's tech-stack decision.
 
 EMBEDDING_PROVIDER = env('EMBEDDING_PROVIDER', default='openai')
+
+
+# LLM provider (see query_understanding/providers/) — swappable via env
+# var, defaults to Claude (Anthropic) per the project's tech-stack decision.
+
+LLM_PROVIDER = env('LLM_PROVIDER', default='anthropic')
+OLLAMA_BASE_URL = env('OLLAMA_BASE_URL', default='http://localhost:11434')
+OLLAMA_MODEL = env('OLLAMA_MODEL', default='qwen3')

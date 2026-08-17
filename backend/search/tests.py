@@ -7,6 +7,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from catalog.models import Product
+from query_understanding.schema import ParsedQuery
 
 from .fusion import reciprocal_rank_fusion
 from .retrieval import hybrid_search
@@ -120,6 +121,52 @@ class HybridSearchTests(TestCase):
         self.assertNotIn(unembedded.id, result_ids)
 
 
+class HybridSearchFilterTests(TestCase):
+    """Phase 4: structured filters (category/price) applied as real SQL
+    WHERE clauses, not a post-filter on already-ranked results."""
+
+    def setUp(self):
+        self.boots = _create_product(
+            "p-boots", "Trailhead Waterproof Hiking Boots",
+            "Great for wet, rocky trails.", "Footwear", hot_index=0, price="2999.00",
+        )
+        self.expensive_boots = _create_product(
+            "p-boots-2", "Alpine Waterproof Hiking Boots",
+            "Premium wet-weather trail boots.", "Footwear", hot_index=0, price="6999.00",
+        )
+        self.speaker = _create_product(
+            "p-speaker", "Voltix Portable Bluetooth Speaker",
+            "Loud, compact, splash-resistant.", "Electronics", hot_index=0, price="1999.00",
+        )
+
+    def test_category_filter_excludes_other_categories(self):
+        provider = FakeQueryEmbeddingProvider(_make_embedding(0))
+        results = hybrid_search(
+            "waterproof", top_k=10, embedding_provider=provider, category="Footwear",
+        )
+        result_ids = {r["product"].id for r in results}
+        self.assertIn(self.boots.id, result_ids)
+        self.assertNotIn(self.speaker.id, result_ids)
+
+    def test_price_max_filter_excludes_products_above_it(self):
+        provider = FakeQueryEmbeddingProvider(_make_embedding(0))
+        results = hybrid_search(
+            "waterproof hiking boots", top_k=10, embedding_provider=provider, price_max=3000,
+        )
+        result_ids = {r["product"].id for r in results}
+        self.assertIn(self.boots.id, result_ids)
+        self.assertNotIn(self.expensive_boots.id, result_ids)
+
+    def test_combined_category_and_price_filters(self):
+        provider = FakeQueryEmbeddingProvider(_make_embedding(0))
+        results = hybrid_search(
+            "waterproof", top_k=10, embedding_provider=provider,
+            category="Footwear", price_max=3000,
+        )
+        result_ids = {r["product"].id for r in results}
+        self.assertEqual(result_ids, {self.boots.id})
+
+
 class SearchEndpointTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -155,3 +202,38 @@ class SearchEndpointTests(TestCase):
         with patch("search.retrieval.get_embedding_provider", side_effect=RuntimeError("no API key")):
             response = self.client.get(reverse("search"), {"q": "boots"})
         self.assertEqual(response.status_code, 502)
+
+    def test_llm_filters_are_applied_through_the_full_endpoint(self):
+        # p-boots (₹2999) should survive a "under ₹3000" filter that an
+        # expensive product wouldn't — proves Phase 4's parsed filters
+        # reach the SQL query through the real endpoint, not just retrieval().
+        expensive = _create_product(
+            "p-boots-expensive", "Alpine Waterproof Hiking Boots",
+            "Premium trail boots.", "Footwear", hot_index=0, price="6999.00",
+        )
+        embedding_provider = FakeQueryEmbeddingProvider(_make_embedding(0))
+        parsed_query = ParsedQuery(price_max=3000, category="Footwear", semantic_query="waterproof hiking boots")
+
+        with patch("search.retrieval.get_embedding_provider", return_value=embedding_provider), \
+             patch("query_understanding.chain.get_llm_provider") as mock_get_llm:
+            mock_get_llm.return_value.parse_query.return_value = parsed_query
+            response = self.client.get(reverse("search"), {"q": "waterproof hiking boots under ₹3000"})
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["parsed"]["category"], "Footwear")
+        self.assertEqual(body["parsed"]["price_max"], 3000)
+        result_ids = {r["product"]["external_id"] for r in body["results"]}
+        self.assertIn("p-boots", result_ids)
+        self.assertNotIn(expensive.external_id, result_ids)
+
+    def test_llm_provider_failure_falls_back_to_plain_search_not_502(self):
+        embedding_provider = FakeQueryEmbeddingProvider(_make_embedding(0))
+        with patch("search.retrieval.get_embedding_provider", return_value=embedding_provider), \
+             patch("query_understanding.chain.get_llm_provider", side_effect=RuntimeError("no API key")):
+            response = self.client.get(reverse("search"), {"q": "waterproof hiking boots"})
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["parsed"]["semantic_query"], "waterproof hiking boots")
+        self.assertIsNone(body["parsed"]["category"])

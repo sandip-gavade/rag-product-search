@@ -144,17 +144,28 @@ semantic query before hitting Phase 3's retrieval.
   treating the whole input as the semantic query.
 
 **Done when:**
-- [ ] Given `"waterproof hiking boots under ₹3000"`, the chain extracts
+- [x] Given `"waterproof hiking boots under ₹3000"`, the chain extracts
       `price_max=3000`, `category≈footwear`, `semantic_query≈"waterproof
-      hiking boots"`.
-- [ ] Extracted filters are applied as real SQL filters (verified with a test
-      query that only matches when the filter is respected).
-- [ ] Fallback path is tested (malformed/ambiguous query still returns
-      results).
+      hiking boots"`. *(Unit-tested with the exact example query; provider
+      mocked — see next item for live-run status.)*
+- [x] Extracted filters are applied as real SQL filters (verified with a test
+      query that only matches when the filter is respected — both at the
+      `retrieval.hybrid_search()` level and through the live `/api/search/`
+      endpoint end-to-end).
+- [x] Fallback path is tested (malformed/ambiguous query still returns
+      results). *(Also live-verified: with no `ANTHROPIC_API_KEY` configured,
+      a real request to the running dev server degraded to plain semantic
+      search with no crash, then hit Phase 3's existing 502 path at the
+      embedding step, as expected — no `OPENAI_API_KEY` either.)*
 - [ ] Chain works with `LLM_PROVIDER=anthropic` and `LLM_PROVIDER=ollama`
       (local Qwen3 pulled and running) — same test suite passes against both,
       or Ollama-specific flakiness is documented if structured output proves
-      unreliable at the model size available locally.
+      unreliable at the model size available locally. *(Pending: no
+      `ANTHROPIC_API_KEY` and no local Ollama instance available in this
+      environment — same gap as Phase 2/3's embedding provider. Code path
+      for both providers is implemented and unit-tested with mocked chat
+      models; add a key or run `ollama serve` + `ollama pull qwen3` to
+      verify live — no code changes needed either way.)*
 
 ## Phase 5 — RAG Answer Synthesis
 
