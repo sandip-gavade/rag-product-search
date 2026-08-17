@@ -26,3 +26,8 @@ class AnthropicProvider(LLMProvider):
     def synthesize_answer(self, prompt: str) -> str:
         response = self._chat_model.invoke(prompt)
         return response.content
+
+    def stream_answer(self, prompt: str):
+        for chunk in self._chat_model.stream(prompt):
+            if chunk.content:
+                yield chunk.content

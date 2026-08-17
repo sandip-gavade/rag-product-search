@@ -207,11 +207,29 @@ actual retrieved products.
   (Django async view or SSE); otherwise return synchronously and note why.
 
 **Done when:**
-- [ ] Endpoint returns a natural-language answer that mentions ≥1 actual
-      retrieved product by name.
-- [ ] Hallucination guard test: fabricate a mock LLM response naming a
-      product not in the retrieved set, assert it's flagged.
-- [ ] Streaming (or documented sync fallback) works end-to-end.
+- [x] Endpoint returns a natural-language answer that mentions ≥1 actual
+      retrieved product by name. *(`GET /api/rag/answer/?q=...` — SSE.
+      Grounding uses bracketed `[external_id]` citations rather than name
+      matching: deterministic to check, and gives the frontend a stable
+      product-reference format to link back to result cards in Phase 6.)*
+- [x] Hallucination guard test: fabricate a mock LLM response naming a
+      product not in the retrieved set, assert it's flagged. *(Both at the
+      `synthesize_answer()` unit level and through the full streaming
+      endpoint — a fabricated `[p-fabricated]` citation is correctly
+      isolated in the final `answer_complete` event's
+      `ungrounded_citations`, logged via `logger.warning`.)*
+- [x] Streaming (or documented sync fallback) works end-to-end. *(Real SSE
+      via `StreamingHttpResponse` + each `LLMProvider`'s new
+      `stream_answer()` — `products` → repeated `token` → `answer_complete`
+      events, or `error` in place of the token stream if synthesis fails.
+      Verified two ways: directly exercising the view's generator with a
+      fake streaming provider (correct event sequence, correct final
+      grounding result), and live against the running dev server with real
+      providers — no `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` configured and
+      LM Studio no longer running (it was up during Phase 4's live test,
+      closed since) — confirms the failure path is a clean 502 at the
+      embedding step, not a crash, consistent with every prior phase's
+      no-live-key situation.)*
 
 ## Phase 6 — React Frontend
 

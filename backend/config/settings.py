@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'ingestion',
     'search',
     'query_understanding',
+    'rag',
 ]
 
 MIDDLEWARE = [

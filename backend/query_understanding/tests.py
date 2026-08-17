@@ -119,6 +119,11 @@ class FakeChatModel:
         self.text_prompt = prompt
         return _FakeMessage(self._text_result)
 
+    def stream(self, prompt):
+        self.text_prompt = prompt
+        for word in self._text_result.split(" "):
+            yield _FakeMessage(word + " ")
+
 
 class _FakeStructuredModel:
     def __init__(self, parent):
@@ -145,6 +150,15 @@ class AnthropicProviderTests(TestCase):
         self.assertIs(provider.parse_query("some prompt"), expected)
         self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")
 
+    def test_stream_answer_yields_chunks(self):
+        from .providers.anthropic_provider import AnthropicProvider
+
+        fake_chat_model = FakeChatModel(text_result="Great boots for rain.")
+        provider = AnthropicProvider(chat_model=fake_chat_model)
+
+        chunks = list(provider.stream_answer("some prompt"))
+        self.assertEqual("".join(chunks).strip(), "Great boots for rain.")
+
 
 class OllamaProviderTests(TestCase):
     def test_parse_query_and_synthesize_answer_use_injected_chat_model(self):
@@ -157,6 +171,15 @@ class OllamaProviderTests(TestCase):
         self.assertIs(provider.parse_query("some prompt"), expected)
         self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")
 
+    def test_stream_answer_yields_chunks(self):
+        from .providers.ollama_provider import OllamaProvider
+
+        fake_chat_model = FakeChatModel(text_result="Great boots for rain.")
+        provider = OllamaProvider(chat_model=fake_chat_model)
+
+        chunks = list(provider.stream_answer("some prompt"))
+        self.assertEqual("".join(chunks).strip(), "Great boots for rain.")
+
 
 class LMStudioProviderTests(TestCase):
     def test_parse_query_and_synthesize_answer_use_injected_chat_model(self):
@@ -168,3 +191,12 @@ class LMStudioProviderTests(TestCase):
 
         self.assertIs(provider.parse_query("some prompt"), expected)
         self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")
+
+    def test_stream_answer_yields_chunks(self):
+        from .providers.lmstudio_provider import LMStudioProvider
+
+        fake_chat_model = FakeChatModel(text_result="Great boots for rain.")
+        provider = LMStudioProvider(chat_model=fake_chat_model)
+
+        chunks = list(provider.stream_answer("some prompt"))
+        self.assertEqual("".join(chunks).strip(), "Great boots for rain.")
