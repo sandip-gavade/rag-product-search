@@ -90,8 +90,9 @@ the streamed, grounded recommendation on top for the actual UI.
 git clone https://github.com/sandip-gavade/rag-product-search.git
 cd rag-product-search
 cp .env.example .env
-# edit .env: at minimum set OPENAI_API_KEY and ANTHROPIC_API_KEY (or
-# LLM_PROVIDER=ollama / lmstudio to use a local model instead — see below)
+# edit .env: at minimum set OPENAI_API_KEY and ANTHROPIC_API_KEY, OR set
+# EMBEDDING_PROVIDER=lmstudio and LLM_PROVIDER=ollama/lmstudio to run
+# entirely free and local instead — see "Choosing a provider" below
 
 docker compose up -d --build
 ```
@@ -103,15 +104,18 @@ and the React dev server. The backend container runs `migrate` then
 - Frontend: <http://localhost:5173>
 - API: <http://localhost:8000/api/search/?q=hiking+boots>
 
-**Populate embeddings** (needs a real `OPENAI_API_KEY` in `.env`):
+**Populate embeddings** (needs either a real `OPENAI_API_KEY`, or
+`EMBEDDING_PROVIDER=lmstudio` with LM Studio running locally — see
+"Choosing an embeddings provider" below):
 
 ```sh
 docker compose exec backend python manage.py ingest_catalog
 ```
 
 This is a separate step from seeding on purpose — seeding is instant and
-free; ingestion calls a paid embeddings API. `ingest_catalog` is
-idempotent (safe to re-run; unchanged products are skipped — see
+free; ingestion calls an embeddings API (paid for `openai`, free/local for
+`lmstudio`). `ingest_catalog` is idempotent (safe to re-run; unchanged
+products are skipped — see
 [`ingestion/tasks.py`](backend/ingestion/tasks.py)) and runs inline by
 default, or pass `--async` to enqueue via the Celery worker instead.
 
@@ -127,7 +131,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp ../.env.example ../.env   # edit as above
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py seed_catalog
-.venv/bin/python manage.py ingest_catalog   # needs OPENAI_API_KEY
+.venv/bin/python manage.py ingest_catalog   # needs OPENAI_API_KEY, or EMBEDDING_PROVIDER=lmstudio
 .venv/bin/python manage.py runserver 8000
 
 # in a second terminal — Celery worker (needed for async ingestion / production)
@@ -139,6 +143,28 @@ npm install
 npm run dev
 ```
 
+### Choosing an embeddings provider
+
+Set `EMBEDDING_PROVIDER` in `.env`:
+
+| Value | Needs | Dimensions | Notes |
+|---|---|---|---|
+| `openai` | `OPENAI_API_KEY` | 1536 | `text-embedding-3-small`, paid |
+| `lmstudio` | [LM Studio](https://lmstudio.ai) running locally, `nomic-embed-text-v1.5` loaded | 768 | Free, local; `LMSTUDIO_EMBEDDING_MODEL`/`LMSTUDIO_BASE_URL` |
+
+The two are **not interchangeable at runtime** — the `Product.embedding`
+column is a fixed-width `pgvector(N)` and Postgres rejects an insert of
+the wrong width outright, and vectors from two different models aren't
+comparable anyway. Switching providers means updating
+`EMBEDDING_DIMENSIONS` in [`catalog/models.py`](backend/catalog/models.py),
+running a migration to resize the column and rebuild the HNSW index, and
+re-running `ingest_catalog` for every product (see that constant's
+docstring for the exact steps). This repo currently ships configured for
+`lmstudio` (768-dim) as the zero-cost default — the full pipeline
+(embeddings + query understanding + synthesis) has been verified running
+genuinely end-to-end against a local LM Studio instance, including live
+in the browser.
+
 ### Choosing an LLM provider
 
 Set `LLM_PROVIDER` in `.env`:
@@ -149,12 +175,25 @@ Set `LLM_PROVIDER` in `.env`:
 | `ollama` | [Ollama](https://ollama.com) running locally, `ollama pull qwen3:8b` | Free, local; `OLLAMA_MODEL`/`OLLAMA_BASE_URL` |
 | `lmstudio` | [LM Studio](https://lmstudio.ai) running locally with a model loaded | Free, local; `LMSTUDIO_MODEL`/`LMSTUDIO_BASE_URL` |
 
-Local-model note: LM Studio's OpenAI-compatible server rejects
-LangChain's default structured-output method (it only accepts string
-`tool_choice` values, not a forced-tool object) — `LMStudioProvider`
-works around this with `method="json_schema"`. Found and fixed via live
-testing against a real LM Studio instance during development; see
-[`query_understanding/providers/lmstudio_provider.py`](backend/query_understanding/providers/lmstudio_provider.py).
+Two local-model quirks were found and fixed via live testing against a
+real LM Studio instance — see
+[`query_understanding/providers/lmstudio_provider.py`](backend/query_understanding/providers/lmstudio_provider.py):
+
+- LM Studio's OpenAI-compatible server rejects LangChain's default
+  structured-output method (it only accepts string `tool_choice` values,
+  not a forced-tool object).
+- Qwen3-family **reasoning** models (tested: `qwen/qwen3.5-9b`) route
+  structured JSON output into a `reasoning_content` field instead of
+  `content` when served through LM Studio's OpenAI-compat layer, which
+  breaks LangChain's `with_structured_output()` outright
+  (`ValueError: ... does not have a 'parsed' field nor a 'refusal'
+  field`). `parse_query()` bypasses LangChain for this call and reads the
+  raw client response with a `content` → `reasoning_content` fallback.
+  Reasoning models are also **much slower** for synthesis in practice
+  (47s+ for a short answer on `qwen3.5-9b` vs. low single-digit seconds
+  on a comparable non-reasoning model) — **prefer a non-reasoning
+  instruct model** for `lmstudio`. This repo was verified end-to-end with
+  `qwen2.5-7b-instruct`.
 
 ## Why hybrid search over pure vector search
 
@@ -173,13 +212,8 @@ scales — one is a bounded distance, the other an unbounded,
 corpus-dependent weight sum — with no natural normalization between them.
 RRF sidesteps that by fusing on *rank position* instead of raw score.
 
-[`eval/results.md`](eval/results.md) makes the case concretely (see below):
-plain-product-type queries ("running shoes", "board game") score a
-perfect 1.00 on keyword search alone, but queries needing synonym
-matching ("waterproof" vs. a title that says "All-Terrain") or price-phrase
-stripping score near zero without the LLM/embedding half doing its job —
-exactly the failure modes hybrid retrieval plus query understanding
-exist to fix.
+[`eval/results.md`](eval/results.md) shows this concretely — see below for
+a specific, real failure case caught by this project's own eval harness.
 
 ## Evaluation results
 
@@ -188,56 +222,69 @@ whose ground truth ([`eval/queries.json`](eval/queries.json)) is derived
 directly from the seeded catalog, not hand-typed — see
 [`eval/generate_queries.py`](eval/generate_queries.py).
 
-**Caveat on these specific numbers:** they're a **keyword-only baseline**.
-This project was built without a paid `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
-on hand, so no product has a real embedding here yet — query embeddings
-were stubbed out for just this one eval run (deterministic vectors, no
-network call, fully reverted immediately after — never part of the
-committed code) purely to unblock the endpoint's mandatory query-embedding
-step. Vector search legitimately contributes nothing in this run (no
-product has an embedding to compare against), so every score below is
-what Postgres full-text search alone achieves. Re-run `manage.py
-ingest_catalog` with a real key and re-run `eval/run_eval.py` to see the
-hybrid numbers.
+These are **genuine numbers from a fully local run** — real embeddings
+(`nomic-embed-text-v1.5` via LM Studio, all 500 products), real query
+understanding and RRF fusion, no stubs. `/api/search/` runs the full
+Phase 3+4 pipeline (query understanding *and* retrieval), so these
+numbers reflect both stages together, not retrieval in isolation.
+
+**A genuine failure case worth calling out**, because it's more useful
+than a clean number: `non-stick frying pan` scores **0.00**. Not a bug —
+the local 7B model classified it as `category: "Electronics"` instead of
+`"Home & Kitchen"`, and since category is applied as a hard SQL filter,
+every correct product became structurally unreachable regardless of how
+good the ranking underneath was. `electric kettle`, `knife set`, `air
+fryer`, and `yoga mat` fail the same way. This is a real, instructive
+argument for treating LLM-extracted filters as a *ranking signal* rather
+than a hard `WHERE` clause in a production system — this project uses the
+simpler hard-filter design deliberately, and the eval harness is what
+surfaces the cost of that choice concretely instead of leaving it
+theoretical.
 
 <!-- eval-results-start -->
 | Query | Precision@5 | Precision@10 | Latency (ms) |
 |---|---|---|---|
-| waterproof hiking boots | 0.00 | 0.00 | 25 |
-| waterproof hiking boots under 3000 | 0.00 | 0.00 | 15 |
-| running shoes | 1.00 | 1.00 | 17 |
-| formal shoes | 1.00 | 1.00 | 17 |
-| waterproof sandals under 2000 | 0.00 | 0.00 | 14 |
-| rain boots | 1.00 | 1.00 | 15 |
-| wireless earbuds | 1.00 | 1.00 | 16 |
-| bluetooth speaker | 1.00 | 1.00 | 22 |
-| mechanical keyboard | 1.00 | 1.00 | 16 |
-| power bank | 1.00 | 1.00 | 16 |
-| laptop stand under 7000 | 0.00 | 0.00 | 14 |
-| webcam | 1.00 | 1.00 | 15 |
-| denim jacket | 0.40 | 0.60 | 16 |
-| cotton t-shirt | 1.00 | 1.00 | 15 |
-| wool sweater | 1.00 | 1.00 | 16 |
-| puffer jacket | 1.00 | 1.00 | 16 |
-| chino trousers | 1.00 | 1.00 | 15 |
-| non-stick frying pan | 1.00 | 1.00 | 19 |
-| electric kettle | 1.00 | 1.00 | 15 |
-| knife set | 1.00 | 1.00 | 16 |
-| air fryer | 1.00 | 1.00 | 18 |
-| camping tent | 1.00 | 1.00 | 16 |
-| yoga mat | 1.00 | 1.00 | 16 |
-| trekking backpack | 1.00 | 1.00 | 16 |
-| cycling helmet | 1.00 | 1.00 | 16 |
-| facial cleanser | 1.00 | 1.00 | 15 |
-| sunscreen lotion | 1.00 | 1.00 | 15 |
-| electric toothbrush | 1.00 | 1.00 | 16 |
-| mystery novel | 1.00 | 1.00 | 16 |
-| science fiction novel | 1.00 | 1.00 | 15 |
-| board game | 1.00 | 1.00 | 17 |
-| building block set | 1.00 | 1.00 | 15 |
-| remote control car | 1.00 | 1.00 | 16 |
-| **Average (33/33 queries)** | **0.86** | **0.87** | **16** |
+| waterproof hiking boots | 0.80 | 0.60 | 4339 |
+| waterproof hiking boots under 3000 | 0.20 | 0.20 | 3420 |
+| running shoes | 1.00 | 0.50 | 1771 |
+| formal shoes | 1.00 | 1.00 | 2234 |
+| waterproof sandals under 2000 | 0.20 | 0.11 | 2424 |
+| rain boots | 0.00 | 0.20 | 2558 |
+| wireless earbuds | 1.00 | 0.80 | 2525 |
+| bluetooth speaker | 1.00 | 0.60 | 2277 |
+| mechanical keyboard | 1.00 | 0.60 | 2566 |
+| power bank | 1.00 | 1.00 | 1695 |
+| laptop stand under 7000 | 0.80 | 0.60 | 2556 |
+| webcam | 1.00 | 1.00 | 1688 |
+| denim jacket | 0.80 | 0.60 | 1542 |
+| cotton t-shirt | 1.00 | 0.90 | 2437 |
+| wool sweater | 1.00 | 0.50 | 2473 |
+| puffer jacket | 0.40 | 0.20 | 2636 |
+| chino trousers | 0.60 | 0.30 | 2655 |
+| non-stick frying pan | 0.00 | 0.00 | 2483 |
+| electric kettle | 0.00 | 0.00 | 1409 |
+| knife set | 0.00 | 0.00 | 2221 |
+| air fryer | 0.00 | 0.00 | 1481 |
+| camping tent | 1.00 | 0.90 | 2159 |
+| yoga mat | 0.00 | 0.00 | 2261 |
+| trekking backpack | 1.00 | 1.00 | 2787 |
+| cycling helmet | 1.00 | 0.80 | 2502 |
+| facial cleanser | 1.00 | 0.90 | 2458 |
+| sunscreen lotion | 1.00 | 1.00 | 2882 |
+| electric toothbrush | 1.00 | 0.80 | 2727 |
+| mystery novel | 1.00 | 0.80 | 1459 |
+| science fiction novel | 1.00 | 1.00 | 1463 |
+| board game | 1.00 | 0.60 | 1726 |
+| building block set | 1.00 | 0.70 | 1914 |
+| remote control car | 1.00 | 0.90 | 2682 |
+| **Average (33/33 queries)** | **0.72** | **0.58** | **2315** |
 <!-- eval-results-end -->
+
+Latency (~2.3s avg) is query-understanding-bound, not retrieval-bound —
+the actual hybrid search is single-digit milliseconds; every request here
+pays for a local LLM call to parse the query first. `run_eval.py` hits
+`/api/search/`, not the streamed `/api/rag/answer/`, so no answer-synthesis
+latency is included either.
 
 ## Testing
 
@@ -270,12 +317,17 @@ rag/
 
 ## Known limitations
 
-- **No live embeddings/LLM calls have been exercised end-to-end with real
-  API keys in this repo's development history** — every phase was built,
-  tested (mocked), and had its failure/fallback paths live-verified
-  without a funded `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`. The one exception
-  is `LMStudioProvider`, live-tested against a real local LM Studio
-  instance. Add your own keys to see the full hybrid pipeline in action.
+- **The Anthropic/OpenAI (Claude + `text-embedding-3-small`) path has not
+  been exercised with real, funded API keys in this repo's development
+  history** — every phase was built and tested (mocked) with those
+  providers' failure/fallback paths live-verified instead. The fully
+  local path (LM Studio: `nomic-embed-text-v1.5` + `qwen2.5-7b-instruct`)
+  *has* been run genuinely end-to-end — real embeddings for all 500
+  products, real query understanding, real streamed synthesis — see the
+  eval results above and [`PROJECT_PLAN.md`](PROJECT_PLAN.md) for the
+  session that did it. `EMBEDDING_DIMENSIONS` (`catalog/models.py`) is
+  currently set to 768 to match the local default; switching to OpenAI
+  needs the migration described in that constant's comment.
 - The synthetic catalog (Phase 1) has no product images — `ProductCard`
   shows a category-initial placeholder tile instead of sourcing/hosting
   placeholder images for generated data.

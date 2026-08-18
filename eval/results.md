@@ -2,37 +2,37 @@
 
 | Query | Precision@5 | Precision@10 | Latency (ms) |
 |---|---|---|---|
-| waterproof hiking boots | 0.00 | 0.00 | 25 |
-| waterproof hiking boots under 3000 | 0.00 | 0.00 | 15 |
-| running shoes | 1.00 | 1.00 | 17 |
-| formal shoes | 1.00 | 1.00 | 17 |
-| waterproof sandals under 2000 | 0.00 | 0.00 | 14 |
-| rain boots | 1.00 | 1.00 | 15 |
-| wireless earbuds | 1.00 | 1.00 | 16 |
-| bluetooth speaker | 1.00 | 1.00 | 22 |
-| mechanical keyboard | 1.00 | 1.00 | 16 |
-| power bank | 1.00 | 1.00 | 16 |
-| laptop stand under 7000 | 0.00 | 0.00 | 14 |
-| webcam | 1.00 | 1.00 | 15 |
-| denim jacket | 0.40 | 0.60 | 16 |
-| cotton t-shirt | 1.00 | 1.00 | 15 |
-| wool sweater | 1.00 | 1.00 | 16 |
-| puffer jacket | 1.00 | 1.00 | 16 |
-| chino trousers | 1.00 | 1.00 | 15 |
-| non-stick frying pan | 1.00 | 1.00 | 19 |
-| electric kettle | 1.00 | 1.00 | 15 |
-| knife set | 1.00 | 1.00 | 16 |
-| air fryer | 1.00 | 1.00 | 18 |
-| camping tent | 1.00 | 1.00 | 16 |
-| yoga mat | 1.00 | 1.00 | 16 |
-| trekking backpack | 1.00 | 1.00 | 16 |
-| cycling helmet | 1.00 | 1.00 | 16 |
-| facial cleanser | 1.00 | 1.00 | 15 |
-| sunscreen lotion | 1.00 | 1.00 | 15 |
-| electric toothbrush | 1.00 | 1.00 | 16 |
-| mystery novel | 1.00 | 1.00 | 16 |
-| science fiction novel | 1.00 | 1.00 | 15 |
-| board game | 1.00 | 1.00 | 17 |
-| building block set | 1.00 | 1.00 | 15 |
-| remote control car | 1.00 | 1.00 | 16 |
-| **Average (33/33 queries)** | **0.86** | **0.87** | **16** |
+| waterproof hiking boots | 0.80 | 0.60 | 4339 |
+| waterproof hiking boots under 3000 | 0.20 | 0.20 | 3420 |
+| running shoes | 1.00 | 0.50 | 1771 |
+| formal shoes | 1.00 | 1.00 | 2234 |
+| waterproof sandals under 2000 | 0.20 | 0.11 | 2424 |
+| rain boots | 0.00 | 0.20 | 2558 |
+| wireless earbuds | 1.00 | 0.80 | 2525 |
+| bluetooth speaker | 1.00 | 0.60 | 2277 |
+| mechanical keyboard | 1.00 | 0.60 | 2566 |
+| power bank | 1.00 | 1.00 | 1695 |
+| laptop stand under 7000 | 0.80 | 0.60 | 2556 |
+| webcam | 1.00 | 1.00 | 1688 |
+| denim jacket | 0.80 | 0.60 | 1542 |
+| cotton t-shirt | 1.00 | 0.90 | 2437 |
+| wool sweater | 1.00 | 0.50 | 2473 |
+| puffer jacket | 0.40 | 0.20 | 2636 |
+| chino trousers | 0.60 | 0.30 | 2655 |
+| non-stick frying pan | 0.00 | 0.00 | 2483 |
+| electric kettle | 0.00 | 0.00 | 1409 |
+| knife set | 0.00 | 0.00 | 2221 |
+| air fryer | 0.00 | 0.00 | 1481 |
+| camping tent | 1.00 | 0.90 | 2159 |
+| yoga mat | 0.00 | 0.00 | 2261 |
+| trekking backpack | 1.00 | 1.00 | 2787 |
+| cycling helmet | 1.00 | 0.80 | 2502 |
+| facial cleanser | 1.00 | 0.90 | 2458 |
+| sunscreen lotion | 1.00 | 1.00 | 2882 |
+| electric toothbrush | 1.00 | 0.80 | 2727 |
+| mystery novel | 1.00 | 0.80 | 1459 |
+| science fiction novel | 1.00 | 1.00 | 1463 |
+| board game | 1.00 | 0.60 | 1726 |
+| building block set | 1.00 | 0.70 | 1914 |
+| remote control car | 1.00 | 0.90 | 2682 |
+| **Average (33/33 queries)** | **0.72** | **0.58** | **2315** |
