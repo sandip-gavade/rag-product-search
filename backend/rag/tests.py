@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from catalog.models import Product
+from catalog.models import EMBEDDING_DIMENSIONS, Product
 
 from .synth import build_grounding_prompt, find_ungrounded_citations, synthesize_answer
 
@@ -103,7 +103,7 @@ class FakeQueryEmbeddingProvider:
         return [self.vector for _ in texts]
 
 
-def _hot_vector(hot_index, dimensions=1536):
+def _hot_vector(hot_index, dimensions=EMBEDDING_DIMENSIONS):
     vec = [0.0] * dimensions
     vec[hot_index] = 1.0
     return vec

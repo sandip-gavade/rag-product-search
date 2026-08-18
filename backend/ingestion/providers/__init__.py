@@ -14,4 +14,8 @@ def get_embedding_provider():
         from .openai_provider import OpenAIEmbeddingProvider
         return OpenAIEmbeddingProvider()
 
+    if provider_name == "lmstudio":
+        from .lmstudio_provider import LMStudioEmbeddingProvider
+        return LMStudioEmbeddingProvider()
+
     raise ValueError(f"Unknown EMBEDDING_PROVIDER: {provider_name!r}")

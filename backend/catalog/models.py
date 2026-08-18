@@ -4,11 +4,18 @@ from django.db import models
 
 from pgvector.django import HnswIndex, VectorField
 
-# text-embedding-3-small produces 1536-dimensional vectors. If the
-# embedding provider is later swapped (see ingestion/providers/), this
-# constant — and a migration to resize the column — is the single place
-# that needs to change.
-EMBEDDING_DIMENSIONS = 1536
+# Must match the ACTIVE embedding provider's output width (see
+# ingestion/providers/) — the column is a fixed-width pgvector(N), and
+# Postgres rejects an insert of the wrong length outright, so this can't
+# vary per request. Set to 768 for the local, zero-cost default (LM
+# Studio's nomic-embed-text-v1.5). Switching EMBEDDING_PROVIDER to
+# something with a different output width (e.g. "openai" -> 1536, for
+# text-embedding-3-small) needs three things done together: this constant
+# updated, a migration to resize the column + rebuild the HNSW index, and
+# ingest_catalog re-run to regenerate every product's embedding — vectors
+# from two different models aren't comparable, so a partial re-embed would
+# silently corrupt similarity search rather than error.
+EMBEDDING_DIMENSIONS = 768
 
 
 class Product(models.Model):

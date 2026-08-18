@@ -181,15 +181,60 @@ class OllamaProviderTests(TestCase):
         self.assertEqual("".join(chunks).strip(), "Great boots for rain.")
 
 
+class _FakeRawOpenAIClient:
+    """Stands in for the raw `openai` client LMStudioProvider.parse_query()
+    uses directly (bypassing LangChain) — see that method's docstring for
+    why. `content`/`reasoning_content` are set per-test to exercise the
+    fallback."""
+
+    def __init__(self, content: str, reasoning_content: str = ""):
+        message = type("Message", (), {"content": content, "reasoning_content": reasoning_content})()
+        choice = type("Choice", (), {"message": message})()
+        response = type("Response", (), {"choices": [choice]})()
+
+        class _Completions:
+            def create(_self, **kwargs):
+                _self.called_with = kwargs
+                return response
+
+        self.chat = type("Chat", (), {"completions": _Completions()})()
+
+
 class LMStudioProviderTests(TestCase):
-    def test_parse_query_and_synthesize_answer_use_injected_chat_model(self):
+    def test_parse_query_falls_back_to_reasoning_content_when_content_empty(self):
+        # The Qwen3-via-LM-Studio quirk this provider works around: the
+        # model's structured JSON answer lands in `reasoning_content`
+        # instead of `content` — discovered live against a real
+        # qwen/qwen3.5-9b instance during development.
         from .providers.lmstudio_provider import LMStudioProvider
 
-        expected = ParsedQuery(semantic_query="boots")
-        fake_chat_model = FakeChatModel(structured_result=expected, text_result="Great boots for rain.")
+        fake_client = _FakeRawOpenAIClient(content="", reasoning_content='{"semantic_query": "boots"}')
+        provider = LMStudioProvider(client=fake_client)
+
+        result = provider.parse_query("some prompt")
+
+        self.assertEqual(result.semantic_query, "boots")
+        self.assertEqual(fake_client.chat.completions.called_with["model"], provider.model)
+
+    def test_parse_query_prefers_content_when_present(self):
+        from .providers.lmstudio_provider import LMStudioProvider
+
+        fake_client = _FakeRawOpenAIClient(
+            content='{"semantic_query": "sandals"}',
+            reasoning_content='{"semantic_query": "should not be used"}',
+        )
+        provider = LMStudioProvider(client=fake_client)
+
+        result = provider.parse_query("some prompt")
+
+        self.assertEqual(result.semantic_query, "sandals")
+
+    def test_synthesize_answer_uses_injected_chat_model(self):
+        from .providers.lmstudio_provider import LMStudioProvider
+
+        fake_chat_model = FakeChatModel(text_result="Great boots for rain.")
         provider = LMStudioProvider(chat_model=fake_chat_model)
 
-        self.assertIs(provider.parse_query("some prompt"), expected)
         self.assertEqual(provider.synthesize_answer("some prompt"), "Great boots for rain.")
 
     def test_stream_answer_yields_chunks(self):

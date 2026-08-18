@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from catalog.models import Product
+from catalog.models import EMBEDDING_DIMENSIONS, Product
 from query_understanding.schema import ParsedQuery
 
 from .fusion import reciprocal_rank_fusion
@@ -53,7 +53,7 @@ class FakeQueryEmbeddingProvider:
         return [self.vector for _ in texts]
 
 
-def _make_embedding(hot_index: int, dimensions: int = 1536) -> list[float]:
+def _make_embedding(hot_index: int, dimensions: int = EMBEDDING_DIMENSIONS) -> list[float]:
     """A near-orthogonal-basis vector: 1.0 at `hot_index`, 0 elsewhere.
     Cosine similarity between two such vectors is 1.0 if they share the
     same hot_index, 0.0 otherwise — makes vector-search ranking exact and
@@ -101,7 +101,7 @@ class HybridSearchTests(TestCase):
     def test_keyword_only_match_still_returned(self):
         # Query embedding matches nothing (all-zero vector, far from every
         # product), but "sandals" is a keyword-only match for self.sandals.
-        provider = FakeQueryEmbeddingProvider([0.0] * 1536)
+        provider = FakeQueryEmbeddingProvider([0.0] * EMBEDDING_DIMENSIONS)
         results = hybrid_search("sandals", top_k=3, embedding_provider=provider)
 
         result_ids = [r["product"].id for r in results]

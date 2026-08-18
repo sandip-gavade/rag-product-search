@@ -165,6 +165,8 @@ OLLAMA_BASE_URL = env('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = env('OLLAMA_MODEL', default='qwen3')
 LMSTUDIO_BASE_URL = env('LMSTUDIO_BASE_URL', default='http://localhost:1234/v1')
 LMSTUDIO_MODEL = env('LMSTUDIO_MODEL', default='qwen3-8b')
+# For EMBEDDING_PROVIDER=lmstudio (see ingestion/providers/lmstudio_provider.py).
+LMSTUDIO_EMBEDDING_MODEL = env('LMSTUDIO_EMBEDDING_MODEL', default='text-embedding-nomic-embed-text-v1.5')
 
 
 # CORS — the React dev server (Phase 6) runs on a different origin than

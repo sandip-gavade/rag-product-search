@@ -5,7 +5,7 @@ from django.contrib.postgres.search import SearchQuery
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 
-from catalog.models import Product
+from catalog.models import EMBEDDING_DIMENSIONS, Product
 
 from .providers import get_embedding_provider
 from .providers.base import EmbeddingProvider
@@ -47,7 +47,7 @@ class BuildEmbeddingTextTests(TestCase):
 class FakeEmbeddingProvider(EmbeddingProvider):
     """Deterministic, zero-cost stand-in for the real API in tests."""
 
-    dimensions = 1536
+    dimensions = EMBEDDING_DIMENSIONS
 
     def __init__(self):
         self.call_count = 0
@@ -80,7 +80,7 @@ class EmbedProductTaskTests(TestCase):
         self.assertEqual(result, "embedded")
         self.assertEqual(fake_provider.call_count, 1)
         self.assertIsNotNone(self.product.embedding)
-        self.assertEqual(len(self.product.embedding), 1536)
+        self.assertEqual(len(self.product.embedding), EMBEDDING_DIMENSIONS)
         self.assertTrue(self.product.content_hash)
 
     def test_search_vector_is_populated_and_matches_title_word(self):
@@ -157,6 +157,12 @@ class GetEmbeddingProviderTests(TestCase):
         provider = get_embedding_provider()
         self.assertIsInstance(provider, OpenAIEmbeddingProvider)
 
+    @override_settings(EMBEDDING_PROVIDER="lmstudio")
+    def test_selects_lmstudio_provider(self):
+        from .providers.lmstudio_provider import LMStudioEmbeddingProvider
+        provider = get_embedding_provider()
+        self.assertIsInstance(provider, LMStudioEmbeddingProvider)
+
     @override_settings(EMBEDDING_PROVIDER="not-a-real-provider")
     def test_unknown_provider_raises(self):
         with self.assertRaises(ValueError):
@@ -185,6 +191,35 @@ class OpenAIEmbeddingProviderTests(TestCase):
 
         fake_client = FakeClient()
         provider = OpenAIEmbeddingProvider(client=fake_client)
+
+        result = provider.embed(["a", "b"])
+
+        self.assertEqual(result, [[0.1, 0.2], [0.3, 0.4]])
+        self.assertEqual(fake_client.embeddings.called_with, (provider.model, ["a", "b"]))
+
+
+class LMStudioEmbeddingProviderTests(TestCase):
+    def test_embed_returns_vectors_in_order(self):
+        from .providers.lmstudio_provider import LMStudioEmbeddingProvider
+
+        class FakeResponseItem:
+            def __init__(self, embedding):
+                self.embedding = embedding
+
+        class FakeResponse:
+            data = [FakeResponseItem([0.1, 0.2]), FakeResponseItem([0.3, 0.4])]
+
+        class FakeEmbeddings:
+            def create(self, model, input):
+                self.called_with = (model, input)
+                return FakeResponse()
+
+        class FakeClient:
+            def __init__(self):
+                self.embeddings = FakeEmbeddings()
+
+        fake_client = FakeClient()
+        provider = LMStudioEmbeddingProvider(client=fake_client)
 
         result = provider.embed(["a", "b"])
 
