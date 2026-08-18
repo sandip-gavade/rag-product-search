@@ -53,6 +53,11 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
+      # LM Studio runs on the Mac host, not in the compose network — inside
+      # a container "localhost" means the container itself, so this must
+      # point at the host via Docker Desktop's special DNS name. Only takes
+      # effect when LLM_PROVIDER/EMBEDDING_PROVIDER=lmstudio.
+      LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
     depends_on:
       db:
         condition: service_healthy
@@ -71,6 +76,7 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
+      LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
     depends_on:
       db:
         condition: service_healthy

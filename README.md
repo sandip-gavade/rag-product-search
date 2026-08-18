@@ -119,6 +119,15 @@ products are skipped — see
 [`ingestion/tasks.py`](backend/ingestion/tasks.py)) and runs inline by
 default, or pass `--async` to enqueue via the Celery worker instead.
 
+If you're using `lmstudio` for either provider, LM Studio must be running
+**on the host** (not in a container) before `docker compose up`, with the
+relevant model(s) already loaded in its local server. The `backend` and
+`celery` services override `LMSTUDIO_BASE_URL` to
+`http://host.docker.internal:1234/v1` — inside a container, `localhost`
+means the container itself, not the Mac/PC running LM Studio, so this
+override is required for the containers to reach it; `docker-compose.yml`
+already does this for you.
+
 ### Option B — Manual (no Docker)
 
 ```sh
@@ -142,6 +151,42 @@ cd frontend
 npm install
 npm run dev
 ```
+
+### Verifying the stack is up
+
+Quick checks, in order, to confirm every piece is actually talking to
+the others rather than just "container is running":
+
+```sh
+# 1. All 5 containers up and healthy
+docker compose ps
+
+# 2. If using lmstudio: containers can reach the host's LM Studio server
+docker compose exec backend python -c "
+import urllib.request
+print(urllib.request.urlopen('http://host.docker.internal:1234/v1/models', timeout=3).status)
+"
+
+# 3. API returns real hybrid results (not a 500/empty array)
+curl -s "http://localhost:8000/api/search/?q=hiking+boots" | head -c 300
+
+# 4. Frontend renders and completes a real query
+open http://localhost:5173   # search "waterproof hiking boots under ₹3000",
+                              # confirm filter chips + streamed answer + citations appear
+```
+
+**Last confirmed working** (fully local, zero paid API calls — LM Studio
+serving both `nomic-embed-text-v1.5` for embeddings and
+`qwen2.5-7b-instruct` for query understanding/synthesis):
+
+| Component | Result |
+|---|---|
+| `db` (Postgres+pgvector, `5433`) | Healthy |
+| `redis` (`6380`) | Healthy |
+| `backend` (Django API, `8000`) | Up; `/api/search/` returned real parsed filters + hybrid-scored results |
+| `celery` | Up |
+| `frontend` (`5173`) | Up; live browser search for *"waterproof hiking boots under ₹3000"* correctly extracted `Footwear` + `Max ₹3000` filter chips, streamed a grounded answer citing 2 real products, and both citations matched retrieved cards ("Mentioned in answer") |
+| Backend service test suite | 74/74 passing |
 
 ### Choosing an embeddings provider
 
